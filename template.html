@@ -1,0 +1,1477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>FLUX · matter study instrument</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+/* ============================================================
+   FLUX — matter study instrument
+   Palette: ink chamber + two-temperature system —
+   cold plasma particles, warm brass instrument markings.
+   Type: Unbounded (display, sparingly) / IBM Plex Mono (readouts)
+   ============================================================ */
+:root{
+  --ink:#08070c;
+  --paper:#e9e4d8;          /* warm dial-white */
+  --dim:rgba(233,228,216,.42);
+  --faint:rgba(233,228,216,.14);
+  --acc:#ffb454;            /* instrument brass (tweened per palette) */
+  --glow:#14276b;           /* chamber atmosphere (tweened per palette) */
+  --mono:'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --disp:'Unbounded', system-ui, sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  background:var(--ink);
+  color:var(--paper);
+  font-family:var(--mono);
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+  cursor:default;
+}
+body.fine-pointer, body.fine-pointer button, body.fine-pointer input{cursor:none}
+
+/* -------- chamber layers -------- */
+#stage{position:fixed;inset:0;z-index:1;touch-action:none}
+#goo-canvas{touch-action:none}
+#stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#goo-canvas{position:fixed;inset:0;z-index:2;display:block;opacity:0;pointer-events:none;
+  filter:url(#goo-filter)}
+body.mode-goo #goo-canvas{pointer-events:auto}
+#atmo{position:fixed;inset:-20%;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse 62% 55% at 50% 58%, var(--glow) 0%, transparent 62%);
+  opacity:.34;transition:background 1.2s ease}
+#vignette{position:fixed;inset:0;z-index:3;pointer-events:none;
+  background:radial-gradient(ellipse 110% 100% at 50% 46%, transparent 55%, rgba(0,0,0,.55) 100%)}
+#grain{position:fixed;inset:0;z-index:4;pointer-events:none;opacity:.055;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+/* -------- instrument chrome -------- */
+.chrome{position:fixed;z-index:10;font-size:10px;letter-spacing:.16em;text-transform:uppercase}
+.booting [data-ui]{opacity:0}
+
+header.chrome{top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;
+  padding:22px 26px 0}
+.brand{display:flex;align-items:baseline;gap:14px}
+.brand .mark{font-family:var(--disp);font-weight:800;font-size:17px;letter-spacing:.28em;color:var(--paper)}
+.brand .mark em{font-style:normal;color:var(--acc)}
+.brand .sub{color:var(--dim);letter-spacing:.14em}
+#telemetry{display:flex;gap:22px;color:var(--dim);text-align:right}
+#telemetry b{color:var(--paper);font-weight:600}
+#telemetry .cell{display:flex;flex-direction:column;gap:3px;align-items:flex-end}
+#telemetry .cell span:last-child{font-size:9px;color:var(--dim)}
+
+/* -------- specimen rail (left dial) -------- */
+#rail{left:26px;top:50%;transform:translateY(-50%);display:flex;gap:14px;z-index:10;position:fixed}
+#rail .ticks{width:1px;background:var(--faint);position:relative}
+#rail-caret{position:absolute;left:-2px;width:5px;height:26px;background:var(--acc);
+  box-shadow:0 0 12px var(--acc)}
+#rail ul{list-style:none;display:flex;flex-direction:column;gap:9px}
+#rail button{
+  all:unset;display:flex;align-items:baseline;gap:10px;padding:4px 6px;
+  color:var(--dim);font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  transition:color .35s ease, transform .35s cubic-bezier(.2,1.4,.3,1);
+}
+#rail button .no{font-size:9px;opacity:.7}
+#rail button .nm{position:relative}
+#rail button:hover{color:var(--paper);transform:translateX(4px)}
+#rail button.active{color:var(--paper)}
+#rail button.active .nm::after{content:"";position:absolute;left:0;right:0;bottom:-3px;height:1px;background:var(--acc)}
+#rail button:focus-visible{outline:1px solid var(--acc);outline-offset:3px}
+body.mode-goo #rail{opacity:.18;pointer-events:none;transition:opacity .5s}
+#rail{transition:opacity .5s}
+
+/* -------- footer console -------- */
+footer.chrome{bottom:0;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-end;
+  padding:0 26px 22px;gap:20px}
+#specimen{display:flex;flex-direction:column;gap:7px;min-width:0}
+#spec-idx{color:var(--acc);font-size:10px;letter-spacing:.3em}
+#spec-name{font-family:var(--disp);font-weight:500;font-size:clamp(17px,2.6vw,26px);
+  letter-spacing:.14em;text-transform:uppercase;color:var(--paper);line-height:1;white-space:nowrap}
+#spec-name .ch{display:inline-block}
+#spec-desc{color:var(--dim);letter-spacing:.14em;font-size:9.5px}
+#console{display:flex;gap:9px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.key{
+  all:unset;font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--paper);border:1px solid var(--faint);padding:9px 15px;position:relative;
+  transition:border-color .3s, color .3s, background .3s, transform .15s;
+  background:rgba(8,7,12,.4);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+}
+.key:hover{border-color:var(--acc);color:var(--acc)}
+.key:active{transform:scale(.96)}
+.key:focus-visible{outline:1px solid var(--acc);outline-offset:3px}
+.key.on{background:var(--acc);color:var(--ink);border-color:var(--acc)}
+.key.hidden{display:none}
+
+/* -------- tune drawer -------- */
+#panel{
+  position:fixed;top:0;right:0;bottom:0;width:288px;z-index:11;
+  background:rgba(10,9,15,.78);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+  border-left:1px solid var(--faint);padding:86px 26px 26px;
+  transform:translateX(105%);display:flex;flex-direction:column;gap:20px;overflow-y:auto;
+}
+#panel h2{font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--acc);font-weight:600}
+#panel .grp{display:flex;flex-direction:column;gap:15px;padding-bottom:18px;border-bottom:1px solid var(--faint)}
+.ctl{display:flex;flex-direction:column;gap:7px}
+.ctl .row{display:flex;justify-content:space-between;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+.ctl .row output{color:var(--paper)}
+.ctl input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:18px;background:transparent}
+.ctl input[type=range]::-webkit-slider-runnable-track{height:1px;background:var(--faint)}
+.ctl input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;margin-top:-6px;
+  background:var(--ink);border:1.5px solid var(--acc);border-radius:50%;transition:transform .18s cubic-bezier(.2,2,.4,1), background .2s}
+.ctl input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.35);background:var(--acc)}
+.ctl input[type=range]::-moz-range-track{height:1px;background:var(--faint)}
+.ctl input[type=range]::-moz-range-thumb{width:12px;height:12px;background:var(--ink);border:1.5px solid var(--acc);border-radius:50%}
+.ctl input[type=range]:focus-visible{outline:1px solid var(--acc);outline-offset:4px}
+#panel .note{color:var(--dim);font-size:9px;letter-spacing:.12em;line-height:1.9}
+#panel .note b{color:var(--paper);font-weight:500}
+
+/* -------- hint chip -------- */
+#hint{position:fixed;left:50%;bottom:86px;transform:translateX(-50%);z-index:10;
+  font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--dim);
+  padding:10px 18px;border:1px solid var(--faint);background:rgba(8,7,12,.5);
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);white-space:nowrap}
+#hint b{color:var(--acc);font-weight:500}
+
+/* -------- boot overlay -------- */
+#boot{position:fixed;inset:0;z-index:50;background:var(--ink);display:flex;
+  flex-direction:column;align-items:center;justify-content:center;gap:34px}
+#boot .word{font-family:var(--disp);font-weight:800;font-size:clamp(44px,9vw,104px);
+  letter-spacing:.3em;text-indent:.3em;color:var(--paper);display:flex}
+#boot .word .ch{display:inline-block;opacity:0}
+#boot .word .ch.acc{color:var(--acc)}
+#boot .lines{display:flex;flex-direction:column;gap:6px;align-items:center;
+  font-size:9.5px;letter-spacing:.28em;text-transform:uppercase;color:var(--dim)}
+#boot .lines span{opacity:0}
+
+/* -------- custom cursor -------- */
+#cur-dot,#cur-blob{position:fixed;top:0;left:0;z-index:60;pointer-events:none;display:none}
+body.fine-pointer #cur-dot, body.fine-pointer #cur-blob{display:block}
+#cur-dot{width:5px;height:5px;border-radius:50%;background:var(--acc);margin:-2.5px 0 0 -2.5px;
+  box-shadow:0 0 8px var(--acc)}
+#cur-blob{width:96px;height:96px;margin:-48px 0 0 -48px}
+#cur-blob path{fill:none;stroke:var(--paper);stroke-opacity:.55;stroke-width:1}
+#burst-ring{position:fixed;z-index:59;pointer-events:none;width:14px;height:14px;margin:-7px 0 0 -7px;
+  border:1.5px solid var(--acc);border-radius:50%;opacity:0}
+
+/* -------- fallback -------- */
+#nogl{position:fixed;inset:0;z-index:99;display:none;align-items:center;justify-content:center;
+  text-align:center;padding:40px;font-size:11px;letter-spacing:.14em;line-height:2.2;color:var(--dim)}
+
+@media (max-width:760px){
+  header.chrome{padding:16px 16px 0}
+  #telemetry{gap:12px}
+  #telemetry .cell:nth-child(3){display:none}
+  #rail{left:14px}
+  #rail button .tag{display:none}
+  footer.chrome{padding:0 16px 16px;flex-direction:column;align-items:stretch;gap:12px}
+  #console{justify-content:flex-start}
+  .key{padding:8px 11px}
+  #panel{width:100%;border-left:none;border-top:1px solid var(--faint);top:auto;height:62%;padding-top:26px}
+  #hint{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .booting [data-ui]{opacity:1}
+}
+</style>
+</head>
+<body>
+
+<!-- gooey metaball filter for the MATTER.JS soft-body chamber -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <filter id="goo-filter">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="9" result="b"/>
+      <feColorMatrix in="b" mode="matrix"
+        values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -10" result="g"/>
+      <feComposite in="SourceGraphic" in2="g" operator="atop"/>
+    </filter>
+  </defs>
+</svg>
+
+<div id="atmo" aria-hidden="true"></div>
+<div id="stage" aria-hidden="true"></div>
+<canvas id="goo-canvas" aria-hidden="true"></canvas>
+<div id="vignette" aria-hidden="true"></div>
+<div id="grain" aria-hidden="true"></div>
+
+<header class="chrome">
+  <div class="brand" data-ui>
+    <span class="mark">FLU<em>X</em></span>
+    <span class="sub">matter study instrument · vol.01</span>
+  </div>
+  <div id="telemetry" data-ui>
+    <div class="cell"><b id="t-fps">—</b><span>fps</span></div>
+    <div class="cell"><b id="t-pts">—</b><span>particles</span></div>
+    <div class="cell"><b id="t-sim">—</b><span>sim / ms</span></div>
+  </div>
+</header>
+
+<nav id="rail" data-ui aria-label="specimen catalogue">
+  <div class="ticks"><div id="rail-caret"></div></div>
+  <ul id="rail-list"></ul>
+</nav>
+
+<footer class="chrome">
+  <div id="specimen" data-ui>
+    <span id="spec-idx">01 / 07</span>
+    <span id="spec-name" aria-live="polite">SPHERE</span>
+    <span id="spec-desc">fibonacci lattice · golden-angle distribution</span>
+  </div>
+  <div id="console" data-ui>
+    <button class="key hidden" id="k-shake">shake</button>
+    <button class="key" id="k-goo" aria-pressed="false">goo</button>
+    <button class="key" id="k-pal">palette</button>
+    <button class="key" id="k-auto" aria-pressed="false">auto</button>
+    <button class="key" id="k-tune" aria-pressed="false">tune</button>
+  </div>
+</footer>
+
+<aside id="panel" aria-label="tuning">
+  <div class="grp">
+    <h2>field dynamics</h2>
+    <div class="ctl"><div class="row"><span>stiffness · k</span><output id="o-stiff">26</output></div>
+      <input id="s-stiff" type="range" min="6" max="60" step="1" value="26"></div>
+    <div class="ctl"><div class="row"><span>damping · c</span><output id="o-damp">0.915</output></div>
+      <input id="s-damp" type="range" min="0.86" max="0.99" step="0.005" value="0.915"></div>
+    <div class="ctl"><div class="row"><span>turbulence</span><output id="o-turb">0.9</output></div>
+      <input id="s-turb" type="range" min="0" max="2.5" step="0.05" value="0.9"></div>
+    <div class="ctl"><div class="row"><span>hand force</span><output id="o-force">1.0</output></div>
+      <input id="s-force" type="range" min="0.2" max="2.2" step="0.05" value="1.0"></div>
+    <div class="ctl"><div class="row"><span>emitter size</span><output id="o-size">1.0</output></div>
+      <input id="s-size" type="range" min="0.5" max="1.8" step="0.05" value="1.0"></div>
+  </div>
+  <div class="grp">
+    <h2>goo chamber</h2>
+    <div class="ctl"><div class="row"><span>gravity · g</span><output id="o-grav">1.0</output></div>
+      <input id="s-grav" type="range" min="-0.6" max="1.6" step="0.05" value="1.0"></div>
+    <div class="ctl"><div class="row"><span>restitution</span><output id="o-rest">0.9</output></div>
+      <input id="s-rest" type="range" min="0.2" max="1.1" step="0.05" value="0.9"></div>
+  </div>
+  <p class="note">integrator <b>semi-implicit euler</b> · restoring force <b>hooke −kx−cv</b> ·
+  advection <b>2d curl of simplex ψ</b> · morph easing <b>staggered smoothstep</b> ·
+  scroll <b>lenis-style exponential lerp</b> · goo <b>verlet constraints + metaball threshold</b></p>
+</aside>
+
+<div id="hint" data-ui><b>scroll</b> morph specimens · <b>drag</b> orbit · <b>hold</b> charge → release</div>
+
+<div id="boot" aria-hidden="true">
+  <div class="lines">
+    <span>calibrating field ······ ok</span>
+    <span>seeding 3-simplex lattice ······ ok</span>
+    <span>hooke constants locked ······ ok</span>
+  </div>
+  <div class="word" id="boot-word"></div>
+</div>
+
+<div id="cur-dot" aria-hidden="true"></div>
+<svg id="cur-blob" viewBox="0 0 96 96" aria-hidden="true"><path id="cur-path" d=""/></svg>
+<div id="burst-ring" aria-hidden="true"></div>
+
+<div id="nogl">FLUX needs WEBGL + a modern browser.<br/>the chamber could not be initialised on this device.</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+
+<script>
+/* ==================================================================
+   FLUX · matter study instrument
+   ------------------------------------------------------------------
+   MODULES
+     NOISE   – seeded 3-simplex noise (Gustavson) + divergence-free
+               2-D curl flow field (F = ∂ψ/∂z, −∂ψ/∂x)
+     MACHINE – XState-style statechart (states / on / entry / exit)
+     FIELD   – 24k GPU-rendered particles, custom GLSL point shaders,
+               Hooke spring–damper (F = −kx − cv), semi-implicit Euler,
+               curl-noise advection, hand force / charge / burst,
+               Lenis-style inertial virtual scroll scrubbing a catalogue
+               of 7 mathematical formations
+     GOO     – Matter.js soft-body chamber: bouncy circles + a manual
+               jelly lattice (constraint grid), SVG metaball threshold
+     UI      – GSAP + anime.js choreography, flubber-style morphing
+               liquid cursor (equal-point resample + interpolation)
+   ================================================================== */
+(function () {
+'use strict';
+
+var docEl = document.documentElement;
+docEl.classList.add('booting');
+
+if (!window.THREE || !window.gsap) {
+  document.getElementById('nogl').style.display = 'flex';
+  docEl.classList.remove('booting');
+  return;
+}
+var HAS_ANIME  = !!window.anime;
+var HAS_MATTER = !!window.Matter;
+var RM = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+var FINE = window.matchMedia('(pointer: fine)').matches;
+if (FINE) document.body.classList.add('fine-pointer');
+
+var TAU = Math.PI * 2;
+function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+function lerp(a, b, t) { return a + (b - a) * t; }
+function smooth(t) { return t * t * (3 - 2 * t); }
+function rand(a, b) { return a + Math.random() * (b - a); }
+
+/* ==================================================================
+   NOISE — seeded 3-simplex (Stefan Gustavson port) + curl flow
+   ================================================================== */
+var NOISE = (function () {
+  var grad3 = new Float32Array([1,1,0,-1,1,0,1,-1,0,-1,-1,0,1,0,1,-1,0,1,1,0,-1,-1,0,-1,0,1,1,0,-1,1,0,1,-1,0,-1,-1]);
+  var p = new Uint8Array(256);
+  var i, s = 1337, j, t;
+  for (i = 0; i < 256; i++) p[i] = i;
+  for (i = 255; i > 0; i--) {
+    s ^= s << 13; s ^= s >>> 17; s ^= s << 5;
+    j = (s >>> 0) % (i + 1); t = p[i]; p[i] = p[j]; p[j] = t;
+  }
+  var perm = new Uint8Array(512), perm12 = new Uint8Array(512);
+  for (i = 0; i < 512; i++) { perm[i] = p[i & 255]; perm12[i] = perm[i] % 12; }
+  var F3 = 1 / 3, G3 = 1 / 6;
+
+  function n3(xin, yin, zin) {
+    var n0, n1, n2, n3v;
+    var sk = (xin + yin + zin) * F3;
+    var i0 = Math.floor(xin + sk), j0 = Math.floor(yin + sk), k0 = Math.floor(zin + sk);
+    var t0 = (i0 + j0 + k0) * G3;
+    var x0 = xin - (i0 - t0), y0 = yin - (j0 - t0), z0 = zin - (k0 - t0);
+    var i1, j1, k1, i2, j2, k2;
+    if (x0 >= y0) {
+      if (y0 >= z0)      { i1=1;j1=0;k1=0;i2=1;j2=1;k2=0; }
+      else if (x0 >= z0) { i1=1;j1=0;k1=0;i2=1;j2=0;k2=1; }
+      else               { i1=0;j1=0;k1=1;i2=1;j2=0;k2=1; }
+    } else {
+      if (y0 < z0)       { i1=0;j1=0;k1=1;i2=0;j2=1;k2=1; }
+      else if (x0 < z0)  { i1=0;j1=1;k1=0;i2=0;j2=1;k2=1; }
+      else               { i1=0;j1=1;k1=0;i2=1;j2=1;k2=0; }
+    }
+    var x1 = x0-i1+G3,   y1 = y0-j1+G3,   z1 = z0-k1+G3;
+    var x2 = x0-i2+2*G3, y2 = y0-j2+2*G3, z2 = z0-k2+2*G3;
+    var x3 = x0-1+3*G3,  y3 = y0-1+3*G3,  z3 = z0-1+3*G3;
+    var ii = i0 & 255, jj = j0 & 255, kk = k0 & 255, gi, tt;
+    tt = 0.6 - x0*x0 - y0*y0 - z0*z0;
+    if (tt < 0) n0 = 0; else { gi = perm12[ii+perm[jj+perm[kk]]]*3; tt*=tt; n0 = tt*tt*(grad3[gi]*x0+grad3[gi+1]*y0+grad3[gi+2]*z0); }
+    tt = 0.6 - x1*x1 - y1*y1 - z1*z1;
+    if (tt < 0) n1 = 0; else { gi = perm12[ii+i1+perm[jj+j1+perm[kk+k1]]]*3; tt*=tt; n1 = tt*tt*(grad3[gi]*x1+grad3[gi+1]*y1+grad3[gi+2]*z1); }
+    tt = 0.6 - x2*x2 - y2*y2 - z2*z2;
+    if (tt < 0) n2 = 0; else { gi = perm12[ii+i2+perm[jj+j2+perm[kk+k2]]]*3; tt*=tt; n2 = tt*tt*(grad3[gi]*x2+grad3[gi+1]*y2+grad3[gi+2]*z2); }
+    tt = 0.6 - x3*x3 - y3*y3 - z3*z3;
+    if (tt < 0) n3v = 0; else { gi = perm12[ii+1+perm[jj+1+perm[kk+1]]]*3; tt*=tt; n3v = tt*tt*(grad3[gi]*x3+grad3[gi+1]*y3+grad3[gi+2]*z3); }
+    return 32 * (n0 + n1 + n2 + n3v);
+  }
+
+  /* curl of scalar potential ψ in the xz-plane → divergence-free swirl,
+     plus an independent noise channel for vertical drift */
+  var E = 0.35, SC = 0.16;
+  function flow(x, y, z, w, out, o) {
+    var px = x * SC, py = y * SC + w, pz = z * SC;
+    var dpx = (n3(px + E, py, pz) - n3(px - E, py, pz)) / (2 * E);
+    var dpz = (n3(px, py, pz + E) - n3(px, py, pz - E)) / (2 * E);
+    out[o]     = dpz;
+    out[o + 1] = n3(px + 31.4, pz + 47.2, w) * 0.7;
+    out[o + 2] = -dpx;
+  }
+  return { n3: n3, flow: flow };
+})();
+
+/* ==================================================================
+   MACHINE — a pocket XState-style statechart interpreter
+   ================================================================== */
+function createMachine(cfg) {
+  var m = {
+    state: cfg.initial,
+    send: function (evt) {
+      var node = cfg.states[m.state];
+      var target = node.on && node.on[evt];
+      if (!target) return;
+      if (node.exit) node.exit();
+      m.state = target;
+      var next = cfg.states[target];
+      if (next.entry) next.entry();
+    }
+  };
+  var first = cfg.states[cfg.initial];
+  if (first.entry) first.entry();
+  return m;
+}
+
+/* ==================================================================
+   PALETTES — two-temperature system: particle spectrum + brass UI
+   ================================================================== */
+var PALETTES = [
+  { name:'plasma',      deep:'#1e3fbf', mid:'#6fd5ff', hot:'#eaf8ff', acc:'#ffb454', glow:'#14276b' },
+  { name:'ember',       deep:'#a62c00', mid:'#ff9d45', hot:'#fff3d6', acc:'#8fd3ff', glow:'#4a1200' },
+  { name:'ultraviolet', deep:'#5b1ecf', mid:'#ff7edb', hot:'#f4e6ff', acc:'#7cf2cb', glow:'#31125e' },
+  { name:'chlorophyll', deep:'#0b6b3a', mid:'#9be15d', hot:'#f2ffd9', acc:'#ff9de1', glow:'#0c3d22' }
+];
+var palIdx = 0;
+
+/* ==================================================================
+   FIELD — the particle chamber
+   ================================================================== */
+var stage = document.getElementById('stage');
+var renderer, scene, camera, points, geom, material;
+var N, pos, vel, flowV, aSpeed, aRand, aScale;
+var FORMS = [];
+var SEG = 680;                                    // scroll units per specimen
+var scroll = { target: 0, value: 0 };             // lenis-style inertial pair
+var P = { k: 26, damp: 0.915, turb: 0.9, force: 1, size: 1, stag: 0.30 };
+var cam = { theta: 0.9, phi: 1.18, radius: 30, tVel: 0, pVel: 0, shake: 0 };
+var pointer = {
+  ndc: new THREE.Vector2(), world: new THREE.Vector3(),
+  active: false, down: false, mode: 'idle',
+  x: window.innerWidth / 2, y: window.innerHeight / 2,
+  downX: 0, downY: 0, downT: 0, charge: 0
+};
+var raycaster = new THREE.Raycaster();
+var plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+var camDir = new THREE.Vector3();
+var burstQueue = [];
+var fieldPaused = false;
+var frame = 0;
+var simMs = 0;
+
+function initField() {
+  try {
+    renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, powerPreference: 'high-performance' });
+  } catch (e) {
+    document.getElementById('nogl').style.display = 'flex';
+    docEl.classList.remove('booting');
+    return false;
+  }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  stage.appendChild(renderer.domElement);
+
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 200);
+
+  var area = window.innerWidth * window.innerHeight;
+  N = Math.floor(clamp(area / 52, 6000, 24000));
+
+  pos    = new Float32Array(N * 3);
+  vel    = new Float32Array(N * 3);
+  flowV  = new Float32Array(N * 3);
+  aSpeed = new Float32Array(N);
+  aRand  = new Float32Array(N);
+  aScale = new Float32Array(N);
+
+  for (var i = 0; i < N; i++) {
+    /* boot state: a loose shell the springs will collapse from */
+    var r = 26 + Math.random() * 14;
+    var th = Math.random() * TAU, ph = Math.acos(rand(-1, 1));
+    pos[i*3]   = Math.sin(ph) * Math.cos(th) * r;
+    pos[i*3+1] = Math.cos(ph) * r;
+    pos[i*3+2] = Math.sin(ph) * Math.sin(th) * r;
+    aRand[i]  = Math.random();
+    aScale[i] = 0.55 + Math.pow(Math.random(), 2.2) * 1.5;
+  }
+
+  buildForms();
+
+  geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geom.setAttribute('aSpeed',   new THREE.BufferAttribute(aSpeed, 1));
+  geom.setAttribute('aRand',    new THREE.BufferAttribute(aRand, 1));
+  geom.setAttribute('aScale',   new THREE.BufferAttribute(aScale, 1));
+
+  var pal = PALETTES[0];
+  material = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    uniforms: {
+      uTime: { value: 0 },
+      uSize: { value: 1 },
+      uColA: { value: new THREE.Color(pal.deep) },
+      uColB: { value: new THREE.Color(pal.mid) },
+      uColC: { value: new THREE.Color(pal.hot) }
+    },
+    vertexShader: [
+      'uniform float uTime;',
+      'uniform float uSize;',
+      'attribute float aRand;',
+      'attribute float aScale;',
+      'attribute float aSpeed;',
+      'varying float vSpeed;',
+      'void main(){',
+      '  vec4 mv = modelViewMatrix * vec4(position, 1.0);',
+      '  float tw = 0.72 + 0.28 * sin(uTime * (1.4 + aRand * 2.6) + aRand * 40.0);',
+      '  float sp = 1.0 + min(aSpeed, 1.6) * 0.7;',
+      '  gl_PointSize = uSize * aScale * tw * sp * (150.0 / -mv.z);',
+      '  vSpeed = aSpeed;',
+      '  gl_Position = projectionMatrix * mv;',
+      '}'
+    ].join('\n'),
+    fragmentShader: [
+      'precision highp float;',
+      'uniform vec3 uColA;',
+      'uniform vec3 uColB;',
+      'uniform vec3 uColC;',
+      'varying float vSpeed;',
+      'void main(){',
+      '  vec2 uv = gl_PointCoord - 0.5;',
+      '  float d = length(uv) * 2.0;',
+      '  if (d > 1.0) discard;',
+      '  float core = smoothstep(1.0, 0.0, d);',
+      '  float hot  = smoothstep(0.42, 0.0, d);',
+      '  float s = clamp(vSpeed, 0.0, 1.0);',
+      '  vec3 col = mix(uColA, uColB, smoothstep(0.04, 0.62, s));',
+      '  col = mix(col, uColC, hot * (0.55 + s * 0.45));',
+      '  float a = core * core * (0.5 + 0.5 * s);',
+      '  gl_FragColor = vec4(col * (0.85 + s * 0.9), a);',
+      '}'
+    ].join('\n')
+  });
+
+  points = new THREE.Points(geom, material);
+  points.frustumCulled = false;
+  scene.add(points);
+  return true;
+}
+
+/* ---------- formation catalogue (all targets: Float32Array N*3) ---------- */
+function buildForms() {
+  FORMS = [
+    formSphere(), formKnot(), formGalaxy(), formWave(),
+    formHelix(), formSuper(), formType('FLUX')
+  ];
+}
+
+function formSphere() {
+  var d = new Float32Array(N * 3);
+  var GA = Math.PI * (3 - Math.sqrt(5));            // golden angle ≈ 2.39996
+  var R = 6.4;
+  for (var i = 0; i < N; i++) {
+    var y = 1 - (i / (N - 1)) * 2;
+    var rr = Math.sqrt(1 - y * y);
+    var th = GA * i;
+    d[i*3]   = Math.cos(th) * rr * R;
+    d[i*3+1] = y * R;
+    d[i*3+2] = Math.sin(th) * rr * R;
+  }
+  return { name:'sphere', tag:'S²', desc:'fibonacci lattice · golden-angle distribution', data:d };
+}
+
+function formKnot() {
+  var d = new Float32Array(N * 3);
+  var pQ = 2, qQ = 3, R = 2.55, tube = 1.05;
+  for (var i = 0; i < N; i++) {
+    var t = (i / N) * TAU;
+    var r = Math.cos(qQ * t) + 2;
+    var cx = R * r * Math.cos(pQ * t);
+    var cy = R * -Math.sin(qQ * t);
+    var cz = R * r * Math.sin(pQ * t);
+    /* thicken along a randomised normal disc around the curve */
+    var a = aRand[i] * TAU, rr = Math.sqrt(Math.random()) * tube;
+    d[i*3]   = cx + Math.cos(a) * rr;
+    d[i*3+1] = cy + Math.sin(a) * rr * 0.9;
+    d[i*3+2] = cz + Math.sin(a * 1.7) * rr * 0.6;
+  }
+  return { name:'knot', tag:'T(2,3)', desc:'trefoil torus knot · (2,3) parametric sweep', data:d };
+}
+
+function formGalaxy() {
+  var d = new Float32Array(N * 3);
+  var rA = new Float32Array(N), aA = new Float32Array(N),
+      yA = new Float32Array(N), wA = new Float32Array(N);
+  var ARMS = 3, R = 8.2;
+  for (var i = 0; i < N; i++) {
+    var arm = i % ARMS;
+    var t = Math.pow(Math.random(), 1.6);
+    var r = 0.35 + t * R;
+    var ang = arm * (TAU / ARMS) + Math.log(1 + r) * 1.9 + rand(-0.22, 0.22) * (1.3 - t);
+    var g = (Math.random() + Math.random() + Math.random() - 1.5) * 0.66;  // ~gaussian
+    rA[i] = r; aA[i] = ang;
+    yA[i] = g * 1.15 * (1.25 - t);
+    wA[i] = 0.05 + 0.55 / (0.6 + r);                 // differential rotation ω(r)
+    d[i*3]   = Math.cos(ang) * r;
+    d[i*3+1] = yA[i];
+    d[i*3+2] = Math.sin(ang) * r;
+  }
+  return {
+    name:'galaxy', tag:'lnΦ', desc:'logarithmic spiral · differential rotation ω(r)',
+    data:d,
+    animate: function (t) {
+      for (var i = 0; i < N; i++) {
+        var a = aA[i] + t * wA[i];
+        d[i*3]   = Math.cos(a) * rA[i];
+        d[i*3+2] = Math.sin(a) * rA[i];
+      }
+    }
+  };
+}
+
+function formWave() {
+  var d = new Float32Array(N * 3);
+  var xs = new Float32Array(N), zs = new Float32Array(N);
+  var G = Math.ceil(Math.sqrt(N)), EXT = 17;
+  for (var i = 0; i < N; i++) {
+    var gx = i % G, gz = Math.floor(i / G);
+    xs[i] = (gx / (G - 1) - 0.5) * EXT;
+    zs[i] = (gz / (G - 1) - 0.5) * EXT;
+    d[i*3] = xs[i]; d[i*3+1] = 0; d[i*3+2] = zs[i];
+  }
+  return {
+    name:'wave', tag:'Σsin', desc:'superposed sine field · radial ripple',
+    data:d,
+    animate: function (t) {
+      for (var i = 0; i < N; i++) {
+        var x = xs[i], z = zs[i];
+        var rr = Math.sqrt(x * x + z * z);
+        d[i*3+1] =
+          1.35 * Math.sin(x * 0.55 + t * 1.5) * Math.cos(z * 0.45 - t * 0.95) +
+          0.85 * Math.sin(rr * 0.95 - t * 2.4) * Math.max(0, 1 - rr / 11);
+      }
+    }
+  };
+}
+
+function formHelix() {
+  var d = new Float32Array(N * 3);
+  var H = 13.5, R = 3.1, TURNS = 3.4;
+  var rungFrac = 0.24, nR = Math.floor(N * rungFrac), nS = N - nR;
+  var i, t, a;
+  for (i = 0; i < nS; i++) {                        // two strands
+    var s = i % 2;
+    t = (i / nS);
+    a = t * TAU * TURNS + s * Math.PI;
+    d[i*3]   = Math.cos(a) * R + rand(-0.14, 0.14);
+    d[i*3+1] = (t - 0.5) * H;
+    d[i*3+2] = Math.sin(a) * R + rand(-0.14, 0.14);
+  }
+  for (i = 0; i < nR; i++) {                        // base-pair rungs
+    var k = nS + i;
+    var step = Math.floor(i / 9) / Math.ceil(nR / 9);
+    var u = (i % 9) / 8;
+    a = step * TAU * TURNS;
+    var x1 = Math.cos(a) * R, z1 = Math.sin(a) * R;
+    d[k*3]   = lerp(x1, -x1, u);
+    d[k*3+1] = (step - 0.5) * H;
+    d[k*3+2] = lerp(z1, -z1, u);
+  }
+  return { name:'helix', tag:'2πk', desc:'double helix · base-pair rungs', data:d };
+}
+
+function formSuper() {
+  /* Gielis superformula, spherical product of two 2-D supershapes */
+  var d = new Float32Array(N * 3);
+  function sf(ang, m, n1, n2, n3) {
+    var t1 = Math.pow(Math.abs(Math.cos(m * ang / 4)), n2);
+    var t2 = Math.pow(Math.abs(Math.sin(m * ang / 4)), n3);
+    return Math.pow(t1 + t2, -1 / n1);
+  }
+  var mx = 0.0001;
+  for (var i = 0; i < N; i++) {
+    var lon = rand(-Math.PI, Math.PI);
+    var lat = Math.asin(rand(-1, 1));
+    var r1 = sf(lon, 8, 60, 100, 30);
+    var r2 = sf(lat, 4, 10, 10, 10);
+    var x = r1 * Math.cos(lon) * r2 * Math.cos(lat);
+    var y = r2 * Math.sin(lat);
+    var z = r1 * Math.sin(lon) * r2 * Math.cos(lat);
+    d[i*3] = x; d[i*3+1] = y; d[i*3+2] = z;
+    var l = Math.sqrt(x*x + y*y + z*z);
+    if (l > mx) mx = l;
+  }
+  var s = 7.4 / mx;
+  for (var k = 0; k < N * 3; k++) d[k] *= s;
+  return { name:'supershape', tag:'gielis', desc:'gielis superformula · spherical product', data:d };
+}
+
+function formType(word) {
+  var d = new Float32Array(N * 3);
+  var c = document.createElement('canvas');
+  c.width = 960; c.height = 320;
+  var x2 = c.getContext('2d');
+  x2.fillStyle = '#fff';
+  x2.textAlign = 'center';
+  x2.textBaseline = 'middle';
+  x2.font = '800 236px "Unbounded", system-ui, sans-serif';
+  x2.fillText(word, 480, 178);
+  var img = x2.getImageData(0, 0, c.width, c.height).data;
+  var pts = [];
+  for (var y = 0; y < 320; y += 3) {
+    for (var x = 0; x < 960; x += 3) {
+      if (img[(y * 960 + x) * 4 + 3] > 120) pts.push(x, y);
+    }
+  }
+  var M = pts.length / 2;
+  if (M < 8) {                                       // degenerate fallback: ring
+    for (var i0 = 0; i0 < N; i0++) {
+      var a0 = (i0 / N) * TAU;
+      d[i0*3] = Math.cos(a0) * 6; d[i0*3+1] = Math.sin(a0) * 2.2; d[i0*3+2] = 0;
+    }
+  } else {
+    var SC2 = 17.5 / 960;
+    for (var i = 0; i < N; i++) {
+      var pi = (i % M) * 2;
+      d[i*3]   = (pts[pi] - 480) * SC2 + rand(-0.05, 0.05);
+      d[i*3+1] = (160 - pts[pi + 1]) * SC2 + rand(-0.05, 0.05);
+      d[i*3+2] = rand(-0.7, 0.7);
+    }
+  }
+  return { name:'type', tag:'glyph', desc:'glyph raster sampling · α-threshold', data:d };
+}
+
+/* rebuild the TYPE specimen once webfonts arrive */
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(function () {
+    if (FORMS.length === 7) FORMS[6] = formType('FLUX');
+  });
+}
+
+/* ---------- per-frame simulation ---------- */
+var FLOW_K = 6;                                    // amortised flow refresh
+function simulate(dt, t) {
+  var f = scroll.value / SEG;
+  var i0 = ((Math.floor(f) % 7) + 7) % 7;
+  var i1 = (i0 + 1) % 7;
+  var fr = f - Math.floor(f);
+  var A = FORMS[i0], B = FORMS[i1];
+  if (A.animate) A.animate(t);
+  if (B.animate && B !== A) B.animate(t);
+  var Ad = A.data, Bd = B.data;
+
+  /* refresh one flow bucket (curl of simplex ψ) */
+  var w = t * 0.24;
+  for (var fi2 = frame % FLOW_K; fi2 < N; fi2 += FLOW_K) {
+    NOISE.flow(pos[fi2*3], pos[fi2*3+1], pos[fi2*3+2], w, flowV, fi2 * 3);
+  }
+
+  /* hand */
+  var hx = 0, hy = 0, hz = 0, hR = 0, hPow = 0, chg = 0, swirl = 0;
+  var hasHand = pointer.active && !fieldPaused;
+  if (hasHand) {
+    raycaster.setFromCamera(pointer.ndc, camera);
+    camera.getWorldDirection(camDir);
+    plane.setFromNormalAndCoplanarPoint(camDir, points.position);
+    raycaster.ray.intersectPlane(plane, pointer.world);
+    hx = pointer.world.x; hy = pointer.world.y; hz = pointer.world.z;
+    chg = pointer.charge;
+    hR = (3.1 + chg * 2.6) * P.force;
+    hPow = (pointer.mode === 'charge' ? -(14 + chg * 30) : 9) * P.force;
+    swirl = (2.2 + chg * 5.5) * P.force;
+  }
+  var ax = camDir.x, ay = camDir.y, az = camDir.z;
+
+  /* queued bursts (release / spacebar) */
+  var bq = burstQueue; burstQueue = [];
+
+  var stag = P.stag;
+  var dampF = Math.pow(P.damp, dt * 60);
+  var turb = P.turb * 7.5;
+  var kk = P.k;
+  var maxSp = 0.0001;
+
+  for (var i = 0; i < N; i++) {
+    var i3 = i * 3;
+    /* staggered eased morph — each particle trails by its own offset */
+    var ft = clamp((fr * (1 + stag) - aRand[i] * stag), 0, 1);
+    ft = smooth(ft);
+    var tx = Ad[i3]   + (Bd[i3]   - Ad[i3])   * ft;
+    var ty = Ad[i3+1] + (Bd[i3+1] - Ad[i3+1]) * ft;
+    var tz = Ad[i3+2] + (Bd[i3+2] - Ad[i3+2]) * ft;
+
+    var px = pos[i3], py = pos[i3+1], pz = pos[i3+2];
+    /* Hooke restoring force  F = −k·x  (damping applied multiplicatively) */
+    var fx = (tx - px) * kk;
+    var fy = (ty - py) * kk;
+    var fz = (tz - pz) * kk;
+    /* curl-noise advection */
+    fx += flowV[i3]   * turb;
+    fy += flowV[i3+1] * turb;
+    fz += flowV[i3+2] * turb;
+
+    if (hasHand) {
+      var dx = px - hx, dy = py - hy, dz = pz - hz;
+      var d2 = dx*dx + dy*dy + dz*dz;
+      if (d2 < hR * hR && d2 > 0.0001) {
+        var dd = Math.sqrt(d2);
+        var fall = 1 - dd / hR; fall *= fall;
+        var inv = 1 / dd;
+        var ux = dx * inv, uy = dy * inv, uz = dz * inv;
+        fx += ux * hPow * fall;
+        fy += uy * hPow * fall;
+        fz += uz * hPow * fall;
+        /* vortex: ω = axis × r̂ */
+        fx += (ay * uz - az * uy) * swirl * fall;
+        fy += (az * ux - ax * uz) * swirl * fall;
+        fz += (ax * uy - ay * ux) * swirl * fall;
+      }
+    }
+
+    /* semi-implicit Euler */
+    var vx = (vel[i3]   + fx * dt) * dampF;
+    var vy = (vel[i3+1] + fy * dt) * dampF;
+    var vz = (vel[i3+2] + fz * dt) * dampF;
+
+    for (var b = 0; b < bq.length; b++) {
+      var Bq = bq[b];
+      var bx = px - Bq.x, by = py - Bq.y, bz = pz - Bq.z;
+      var bl = Math.sqrt(bx*bx + by*by + bz*bz) + 0.001;
+      if (bl < Bq.r) {
+        var bf = (1 - bl / Bq.r); bf *= bf;
+        var bp = Bq.p * bf / bl;
+        vx += bx * bp; vy += by * bp; vz += bz * bp;
+      }
+    }
+
+    vel[i3] = vx; vel[i3+1] = vy; vel[i3+2] = vz;
+    pos[i3]   = px + vx * dt;
+    pos[i3+1] = py + vy * dt;
+    pos[i3+2] = pz + vz * dt;
+
+    var sp = vx*vx + vy*vy + vz*vz;
+    aSpeed[i] = sp;
+    if (sp > maxSp) maxSp = sp;
+  }
+
+  /* normalise speed → shader heat channel */
+  var inv2 = 1 / Math.max(maxSp, 22);
+  for (var q = 0; q < N; q++) aSpeed[q] = Math.min(aSpeed[q] * inv2 * 2.4, 1.4);
+
+  geom.attributes.position.needsUpdate = true;
+  geom.attributes.aSpeed.needsUpdate = true;
+}
+
+/* ==================================================================
+   GOO — Matter.js soft-body chamber (metaball liquid)
+   ================================================================== */
+var GOO = (function () {
+  if (!HAS_MATTER) return null;
+  var Engine = Matter.Engine, Bodies = Matter.Bodies, Body = Matter.Body,
+      Composite = Matter.Composite, Constraint = Matter.Constraint,
+      Mouse = Matter.Mouse, MouseConstraint = Matter.MouseConstraint;
+  var engine = null, canvas = document.getElementById('goo-canvas'),
+      ctx = null, balls = [], jelly = [], walls = [], built = false, mc = null;
+
+  function palColors() {
+    var p = PALETTES[palIdx];
+    return [p.deep, p.mid, p.hot];
+  }
+
+  function build() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    ctx = canvas.getContext('2d');
+    engine = Engine.create();
+    engine.gravity.y = 1;
+    engine.positionIterations = 8;
+    engine.velocityIterations = 6;
+
+    var w = canvas.width, h = canvas.height, cols = palColors();
+    var count = w < 760 ? 44 : 78;
+    for (var i = 0; i < count; i++) {
+      var r = rand(13, 34);
+      var b = Bodies.circle(rand(r, w - r), rand(-h * 0.6, h * 0.4), r, {
+        restitution: 0.9, friction: 0.02, frictionAir: 0.012
+      });
+      b._col = cols[i % 3];
+      b._r = r;
+      balls.push(b);
+    }
+
+    /* manual soft-body: a lattice of small bodies laced with spring
+       constraints (structural + shear) — a draggable jelly slab */
+    var JC = 5, JR = 5, SPC = 34, jr = 11;
+    var ox = w * 0.5 - (JC - 1) * SPC * 0.5, oy = h * 0.28;
+    var grid = [];
+    var pAcc = PALETTES[palIdx].acc;
+    for (var gy = 0; gy < JR; gy++) {
+      for (var gx = 0; gx < JC; gx++) {
+        var jb = Bodies.circle(ox + gx * SPC, oy + gy * SPC, jr, {
+          restitution: 0.4, friction: 0.05, frictionAir: 0.03
+        });
+        jb._col = pAcc; jb._r = jr + 7; jb._jelly = true;
+        grid.push(jb); jelly.push(jb);
+      }
+    }
+    var cons = [];
+    function link(a, b, st) {
+      cons.push(Constraint.create({ bodyA: a, bodyB: b, stiffness: st, damping: 0.08 }));
+    }
+    for (var y2 = 0; y2 < JR; y2++) {
+      for (var x2 = 0; x2 < JC; x2++) {
+        var idx = y2 * JC + x2;
+        if (x2 < JC - 1) link(grid[idx], grid[idx + 1], 0.055);
+        if (y2 < JR - 1) link(grid[idx], grid[idx + JC], 0.055);
+        if (x2 < JC - 1 && y2 < JR - 1) {
+          link(grid[idx], grid[idx + JC + 1], 0.03);
+          link(grid[idx + 1], grid[idx + JC], 0.03);
+        }
+      }
+    }
+
+    makeWalls();
+    Composite.add(engine.world, balls);
+    Composite.add(engine.world, jelly);
+    Composite.add(engine.world, cons);
+
+    var mouse = Mouse.create(canvas);
+    mc = MouseConstraint.create(engine, {
+      mouse: mouse,
+      constraint: { stiffness: 0.12, damping: 0.1, render: { visible: false } }
+    });
+    Composite.add(engine.world, mc);
+    built = true;
+  }
+
+  function makeWalls() {
+    var w = canvas.width, h = canvas.height, T = 240;
+    walls.forEach(function (wl) { Composite.remove(engine.world, wl); });
+    walls = [
+      Bodies.rectangle(w / 2, h + T / 2, w * 2, T, { isStatic: true }),
+      Bodies.rectangle(w / 2, -T * 2.5,  w * 2, T, { isStatic: true }),
+      Bodies.rectangle(-T / 2, h / 2, T, h * 6, { isStatic: true }),
+      Bodies.rectangle(w + T / 2, h / 2, T, h * 6, { isStatic: true })
+    ];
+    Composite.add(engine.world, walls);
+  }
+
+  function step(dtms) {
+    if (!built) return;
+    Engine.update(engine, clamp(dtms, 4, 33));
+    var w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    var all = balls.concat(jelly);
+    for (var i = 0; i < all.length; i++) {
+      var b = all[i];
+      /* rescue escapees */
+      if (b.position.y > h + 400 || b.position.x < -400 || b.position.x > w + 400) {
+        Body.setPosition(b, { x: rand(60, w - 60), y: -80 });
+        Body.setVelocity(b, { x: 0, y: 0 });
+      }
+      ctx.fillStyle = b._col;
+      ctx.beginPath();
+      ctx.arc(b.position.x, b.position.y, b._r, 0, TAU);
+      ctx.fill();
+    }
+  }
+
+  return {
+    enter: function () { if (!built) build(); },
+    step: step,
+    resize: function () {
+      if (!built) return;
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      makeWalls();
+    },
+    shake: function () {
+      if (!built) return;
+      balls.concat(jelly).forEach(function (b) {
+        Body.applyForce(b, b.position, {
+          x: rand(-0.06, 0.06) * b.mass,
+          y: rand(-0.11, -0.02) * b.mass
+        });
+      });
+    },
+    setGravity: function (g) { if (engine) engine.gravity.y = g; },
+    setRestitution: function (r) {
+      balls.forEach(function (b) { b.restitution = r; });
+    },
+    recolor: function () {
+      var cols = palColors(), pAcc = PALETTES[palIdx].acc;
+      balls.forEach(function (b, i) { b._col = cols[i % 3]; });
+      jelly.forEach(function (b) { b._col = pAcc; });
+    }
+  };
+})();
+
+/* ==================================================================
+   STATECHART — boot → field ⇄ goo
+   ================================================================== */
+var kGoo = document.getElementById('k-goo');
+var kShake = document.getElementById('k-shake');
+var machine = createMachine({
+  initial: 'boot',
+  states: {
+    boot: { on: { DONE: 'field' } },
+    field: {
+      entry: function () {
+        fieldPaused = false;
+        document.body.classList.remove('mode-goo');
+        kGoo.classList.remove('on');
+        kGoo.setAttribute('aria-pressed', 'false');
+        kShake.classList.add('hidden');
+        gsap.to('#goo-canvas', { autoAlpha: 0, duration: 0.5, ease: 'power2.out' });
+        gsap.to(stage, { opacity: 1, filter: 'blur(0px)', duration: 0.7, ease: 'power2.out' });
+        setSpecimenLabel(curSpec, true);
+      },
+      on: { GOO: 'goo' }
+    },
+    goo: {
+      entry: function () {
+        fieldPaused = true;
+        GOO.enter();
+        document.body.classList.add('mode-goo');
+        kGoo.classList.add('on');
+        kGoo.setAttribute('aria-pressed', 'true');
+        kShake.classList.remove('hidden');
+        gsap.to('#goo-canvas', { autoAlpha: 1, duration: 0.6, ease: 'power2.out' });
+        gsap.to(stage, { opacity: 0.14, filter: 'blur(5px)', duration: 0.7, ease: 'power2.inOut' });
+        setLabelText('GOO', 'soft-body lattice · verlet constraints · metaball threshold', 'Δ / 07');
+        if (HAS_ANIME) anime({ targets: '#k-shake', scale: [0.6, 1], opacity: [0, 1], duration: 500, easing: 'spring(1, 90, 11, 0)' });
+      },
+      on: { FIELD: 'field' }
+    }
+  }
+});
+if (!HAS_MATTER) kGoo.style.display = 'none';
+
+/* ==================================================================
+   UI — rail, labels, telemetry, palettes, panel, choreography
+   ================================================================== */
+var railList = document.getElementById('rail-list');
+var railCaret = document.getElementById('rail-caret');
+var specIdx = document.getElementById('spec-idx');
+var specName = document.getElementById('spec-name');
+var specDesc = document.getElementById('spec-desc');
+var curSpec = 0;
+var railBtns = [];
+
+function pad2(n) { return (n < 10 ? '0' : '') + n; }
+
+function buildRail() {
+  FORMS.forEach(function (F, i) {
+    var li = document.createElement('li');
+    var b = document.createElement('button');
+    b.innerHTML = '<span class="no">' + pad2(i + 1) + '</span><span class="nm">' + F.name +
+                  '</span><span class="tag no"> · ' + F.tag + '</span>';
+    b.addEventListener('click', function () { goTo(i); });
+    li.appendChild(b);
+    railList.appendChild(li);
+    railBtns.push(b);
+  });
+}
+
+function splitChars(el, text) {
+  el.textContent = '';
+  var frag = document.createDocumentFragment();
+  for (var i = 0; i < text.length; i++) {
+    var s = document.createElement('span');
+    s.className = 'ch';
+    s.textContent = text[i] === ' ' ? '\u00A0' : text[i];
+    frag.appendChild(s);
+  }
+  el.appendChild(frag);
+}
+
+var labelAnim = null, labelGen = 0;
+function setLabelText(name, desc, idxText) {
+  specIdx.textContent = idxText;
+  specDesc.textContent = desc;
+  if (!HAS_ANIME || RM) { specName.textContent = name; return; }
+  if (labelAnim) labelAnim.pause();
+  var gen = ++labelGen;
+  var doIn = function () {
+    if (gen !== labelGen) return;
+    splitChars(specName, name);
+    labelAnim = anime({ targets: specName.querySelectorAll('.ch'),
+      translateY: [12, 0], opacity: [0, 1],
+      duration: 460, delay: anime.stagger(16), easing: 'easeOutExpo' });
+  };
+  var chs = specName.querySelectorAll('.ch');
+  if (chs.length) {
+    labelAnim = anime({ targets: chs, translateY: [0, -10], opacity: [1, 0],
+      duration: 170, delay: anime.stagger(10), easing: 'easeInCubic', complete: doIn });
+  } else { doIn(); }
+}
+
+function setSpecimenLabel(i, force) {
+  if (i === curSpec && !force) return;
+  curSpec = i;
+  var F = FORMS[i];
+  setLabelText(F.name.toUpperCase(), F.desc, pad2(i + 1) + ' / 07');
+  railBtns.forEach(function (b, k) { b.classList.toggle('active', k === i); });
+  var row = railBtns[i];
+  gsap.to(railCaret, {
+    y: row.offsetTop + row.offsetHeight / 2 - 13,
+    duration: RM ? 0 : 0.9, ease: 'elastic.out(1, 0.55)'
+  });
+}
+
+function goTo(i) {
+  if (machine.state === 'goo') machine.send('FIELD');
+  gsap.killTweensOf(scroll);
+  var cur = scroll.target / SEG;
+  var curMod = ((cur % 7) + 7) % 7;
+  var delta = i - curMod;
+  if (delta > 3.5) delta -= 7;
+  if (delta < -3.5) delta += 7;
+  gsap.to(scroll, { target: (cur + delta) * SEG, duration: RM ? 0 : 1.25, ease: 'expo.out' });
+}
+
+/* palette cycling — tween shader colours + CSS custom properties */
+function applyPalette(instant) {
+  var p = PALETTES[palIdx];
+  var dA = new THREE.Color(p.deep), dB = new THREE.Color(p.mid), dC = new THREE.Color(p.hot);
+  var dur = instant ? 0 : 1.3;
+  gsap.to(material.uniforms.uColA.value, { r: dA.r, g: dA.g, b: dA.b, duration: dur, ease: 'sine.inOut' });
+  gsap.to(material.uniforms.uColB.value, { r: dB.r, g: dB.g, b: dB.b, duration: dur, ease: 'sine.inOut' });
+  gsap.to(material.uniforms.uColC.value, { r: dC.r, g: dC.g, b: dC.b, duration: dur, ease: 'sine.inOut' });
+  gsap.to(docEl, { '--acc': p.acc, '--glow': p.glow, duration: dur, ease: 'sine.inOut' });
+  if (GOO) GOO.recolor();
+}
+
+/* telemetry */
+var tFps = document.getElementById('t-fps'),
+    tPts = document.getElementById('t-pts'),
+    tSim = document.getElementById('t-sim');
+var fpsEma = 60, lastTele = 0;
+function telemetry(now, dt) {
+  fpsEma = lerp(fpsEma, 1 / Math.max(dt, 0.0001), 0.06);
+  if (now - lastTele > 480) {
+    lastTele = now;
+    tFps.textContent = Math.round(fpsEma);
+    tSim.textContent = simMs.toFixed(1);
+  }
+}
+
+/* panel */
+var panelOpen = false, kTune = document.getElementById('k-tune');
+function togglePanel(forceClose) {
+  panelOpen = forceClose ? false : !panelOpen;
+  kTune.classList.toggle('on', panelOpen);
+  kTune.setAttribute('aria-pressed', String(panelOpen));
+  gsap.to('#panel', {
+    x: panelOpen ? '0%' : '105%',
+    duration: RM ? 0 : 0.85,
+    ease: panelOpen ? 'expo.out' : 'expo.inOut'
+  });
+}
+gsap.set('#panel', { x: '105%' });   /* take over the CSS transform */
+
+function bindSlider(id, out, fn, fmt) {
+  var el = document.getElementById(id), o = document.getElementById(out);
+  el.addEventListener('input', function () {
+    var v = parseFloat(el.value);
+    o.textContent = fmt ? fmt(v) : v;
+    fn(v);
+  });
+}
+bindSlider('s-stiff', 'o-stiff', function (v) { P.k = v; });
+bindSlider('s-damp',  'o-damp',  function (v) { P.damp = v; }, function (v) { return v.toFixed(3); });
+bindSlider('s-turb',  'o-turb',  function (v) { P.turb = v; }, function (v) { return v.toFixed(2); });
+bindSlider('s-force', 'o-force', function (v) { P.force = v; }, function (v) { return v.toFixed(2); });
+bindSlider('s-size',  'o-size',  function (v) { P.size = v; material.uniforms.uSize.value = v; }, function (v) { return v.toFixed(2); });
+bindSlider('s-grav',  'o-grav',  function (v) { if (GOO) GOO.setGravity(v); }, function (v) { return v.toFixed(2); });
+bindSlider('s-rest',  'o-rest',  function (v) { if (GOO) GOO.setRestitution(v); }, function (v) { return v.toFixed(2); });
+document.getElementById('panel').addEventListener('wheel', function (e) { e.stopPropagation(); });
+
+/* console keys */
+kGoo.addEventListener('click', function () {
+  machine.send(machine.state === 'goo' ? 'FIELD' : 'GOO');
+});
+kShake.addEventListener('click', function () {
+  if (GOO) GOO.shake();
+  gsap.fromTo('#goo-canvas', { y: -7 }, { y: 0, duration: 0.6, ease: 'elastic.out(1.2, 0.35)' });
+});
+document.getElementById('k-pal').addEventListener('click', function () {
+  palIdx = (palIdx + 1) % PALETTES.length;
+  applyPalette(false);
+  if (HAS_ANIME) anime({ targets: '#k-pal', rotate: ['-4deg', '0deg'], scale: [0.92, 1], duration: 450, easing: 'spring(1, 100, 12, 0)' });
+});
+var autoOn = false, kAuto = document.getElementById('k-auto'), autoTimer = null;
+kAuto.addEventListener('click', function () {
+  autoOn = !autoOn;
+  kAuto.classList.toggle('on', autoOn);
+  kAuto.setAttribute('aria-pressed', String(autoOn));
+  if (autoTimer) { autoTimer.kill(); autoTimer = null; }
+  if (autoOn) {
+    var tick = function () {
+      if (machine.state === 'field') {
+        gsap.killTweensOf(scroll);
+        gsap.to(scroll, { target: scroll.target + SEG, duration: 2.2, ease: 'expo.inOut' });
+      }
+      autoTimer = gsap.delayedCall(5.6, tick);
+    };
+    tick();
+  }
+});
+kTune.addEventListener('click', function () { togglePanel(); });
+
+/* ==================================================================
+   INPUT — inertial wheel scrub, orbit drag, charge & burst, keys
+   ================================================================== */
+window.addEventListener('wheel', function (e) {
+  if (machine.state !== 'field') return;
+  e.preventDefault();
+  gsap.killTweensOf(scroll);
+  scroll.target += clamp(e.deltaY, -140, 140) * 1.15;
+}, { passive: false });
+
+function ndcFrom(e) {
+  pointer.ndc.x = (e.clientX / window.innerWidth) * 2 - 1;
+  pointer.ndc.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  pointer.x = e.clientX; pointer.y = e.clientY;
+}
+
+window.addEventListener('pointermove', function (e) {
+  var mdx = e.clientX - (pointer.px === undefined ? e.clientX : pointer.px);
+  var mdy = e.clientY - (pointer.py === undefined ? e.clientY : pointer.py);
+  pointer.px = e.clientX; pointer.py = e.clientY;
+  ndcFrom(e);
+  pointer.active = true;
+  if (pointer.down && pointer.mode !== 'charge') {
+    var dx = e.clientX - pointer.downX, dy = e.clientY - pointer.downY;
+    if (pointer.mode === 'pending' && Math.hypot(dx, dy) > 7) {
+      pointer.mode = 'orbit';
+      gsap.killTweensOf(pointer);
+      pointer.charge = 0;
+    }
+    if (pointer.mode === 'orbit') {
+      cam.tVel -= mdx * 0.00022;
+      cam.pVel -= mdy * 0.00022;
+    }
+  }
+});
+window.addEventListener('pointerdown', function (e) {
+  if (e.target.closest('.key') || e.target.closest('#panel') ||
+      e.target.closest('#rail') || e.target.closest('header')) return;
+  if (machine.state !== 'field') return;
+  ndcFrom(e);
+  pointer.down = true;
+  pointer.mode = 'pending';
+  pointer.downX = e.clientX; pointer.downY = e.clientY;
+  pointer.downT = performance.now();
+  gsap.killTweensOf(pointer);
+  gsap.to(pointer, {
+    charge: 1, duration: 1.5, ease: 'power1.in', delay: 0.24,
+    onStart: function () { if (pointer.mode === 'pending') pointer.mode = 'charge'; }
+  });
+});
+window.addEventListener('pointerup', function () {
+  if (!pointer.down) return;
+  pointer.down = false;
+  gsap.killTweensOf(pointer);
+  if (pointer.mode === 'charge' && pointer.charge > 0.02) {
+    fireBurst(pointer.charge);
+  } else if (pointer.mode === 'pending') {
+    fireBurst(0.12);                                  /* tap → small pop */
+  }
+  pointer.mode = 'idle';
+  gsap.to(pointer, { charge: 0, duration: 0.3, ease: 'power2.out' });
+});
+docEl.addEventListener('mouseleave', function () { pointer.active = false; });
+window.addEventListener('blur', function () { pointer.down = false; pointer.mode = 'idle'; });
+
+function fireBurst(charge) {
+  burstQueue.push({
+    x: pointer.world.x, y: pointer.world.y, z: pointer.world.z,
+    r: 5 + charge * 4.5, p: 7 + charge * 30
+  });
+  cam.shake = 0.12 + charge * 0.35;
+  gsap.to(cam, { shake: 0, duration: 0.7, ease: 'power3.out' });
+  var ring = document.getElementById('burst-ring');
+  gsap.set(ring, { left: pointer.x, top: pointer.y, scale: 0.4, opacity: 0.9 });
+  gsap.to(ring, { scale: 5 + charge * 7, opacity: 0, duration: 0.7, ease: 'expo.out' });
+}
+
+window.addEventListener('keydown', function (e) {
+  var ae = document.activeElement;
+  if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'BUTTON')) return;
+  var d = parseInt(e.key, 10);
+  if (d >= 1 && d <= 7) { goTo(d - 1); return; }
+  if (e.key === 'ArrowDown' || e.key === 'ArrowRight') goTo((curSpec + 1) % 7);
+  else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') goTo((curSpec + 6) % 7);
+  else if (e.key === 'g' && HAS_MATTER) machine.send(machine.state === 'goo' ? 'FIELD' : 'GOO');
+  else if (e.key === 'p') document.getElementById('k-pal').click();
+  else if (e.key === 'a') kAuto.click();
+  else if (e.key === 't') togglePanel();
+  else if (e.key === ' ') {
+    e.preventDefault();
+    if (machine.state === 'field') {
+      pointer.world.set(0, 0, 0); pointer.x = window.innerWidth / 2; pointer.y = window.innerHeight / 2;
+      fireBurst(0.8);
+    } else if (GOO) { GOO.shake(); }
+  }
+});
+
+/* ==================================================================
+   CURSOR — liquid blob ring, flubber-style equal-point morphing
+   (circle ↔ squircle sampled at the same 56 angles, radii lerped)
+   ================================================================== */
+var CUR = (function () {
+  if (!FINE) return null;
+  var dot = document.getElementById('cur-dot');
+  var blobSvg = document.getElementById('cur-blob');
+  var path = document.getElementById('cur-path');
+  var PN = 56, sqR = new Float32Array(PN), cosA = new Float32Array(PN), sinA = new Float32Array(PN);
+  for (var i = 0; i < PN; i++) {
+    var a = (i / PN) * TAU;
+    cosA[i] = Math.cos(a); sinA[i] = Math.sin(a);
+    /* superellipse |cos|ⁿ+|sin|ⁿ = 1, n = 4 → squircle radius at angle a */
+    sqR[i] = Math.pow(Math.pow(Math.abs(cosA[i]), 4) + Math.pow(Math.abs(sinA[i]), 4), -0.25);
+  }
+  var st = { x: innerWidth / 2, y: innerHeight / 2, bx: innerWidth / 2, by: innerHeight / 2,
+             vx: 0, vy: 0, hover: 0, hv: 0, wob: 1 };
+
+  document.addEventListener('pointerover', function (e) {
+    st.hoverT = !!e.target.closest('.key, #rail button, input[type=range]');
+  });
+
+  function frame(t, dt) {
+    /* dot: fast critically-damped follow */
+    st.x = lerp(st.x, pointer.x, 1 - Math.pow(0.0001, dt));
+    st.y = lerp(st.y, pointer.y, 1 - Math.pow(0.0001, dt));
+    dot.style.transform = 'translate(' + st.x + 'px,' + st.y + 'px)';
+
+    /* blob: underdamped spring → jelly lag & overshoot */
+    var kS = 130, cS = 11;
+    st.vx += (pointer.x - st.bx) * kS * dt; st.vx *= Math.exp(-cS * dt);
+    st.vy += (pointer.y - st.by) * kS * dt; st.vy *= Math.exp(-cS * dt);
+    st.bx += st.vx * dt; st.by += st.vy * dt;
+
+    var tgt = (st.hoverT ? 1 : 0);
+    st.hv += ((tgt - st.hover) * 180 - st.hv * 14) * dt;
+    st.hover += st.hv * dt;
+
+    var chg = pointer.charge;
+    var R = 15 + st.hover * 9 + chg * 17;
+    var w1 = (0.10 + chg * 0.22) * st.wob, w2 = 0.06 * st.wob;
+    var d = '';
+    for (var i = 0; i < PN; i++) {
+      var wob = 1 + w1 * Math.sin(3 * (i / PN) * TAU + t * 2.1)
+                  + w2 * Math.sin(5 * (i / PN) * TAU - t * 3.3);
+      var rr = R * lerp(wob, sqR[i] * 1.02, clamp(st.hover, 0, 1) * 0.85);
+      var px = 48 + cosA[i] * rr, py = 48 + sinA[i] * rr;
+      d += (i === 0 ? 'M' : 'L') + px.toFixed(1) + ' ' + py.toFixed(1);
+    }
+    path.setAttribute('d', d + 'Z');
+    path.style.stroke = chg > 0.03 ? 'var(--acc)' : '';
+    blobSvg.style.transform = 'translate(' + st.bx + 'px,' + st.by + 'px)';
+  }
+  return { frame: frame };
+})();
+
+/* ==================================================================
+   MASTER LOOP
+   ================================================================== */
+var lastT = performance.now();
+var shakeSeed = Math.random() * 100;
+
+function loop(now) {
+  requestAnimationFrame(loop);
+  var dt = clamp((now - lastT) / 1000, 0.001, 0.033);
+  lastT = now;
+  var t = now / 1000;
+  frame++;
+
+  /* lenis-style exponential smoothing of the virtual scroll */
+  scroll.value += (scroll.target - scroll.value) * (1 - Math.pow(0.0016, dt));
+
+  if (machine.state !== 'goo') {
+    var s0 = performance.now();
+    if (!fieldPaused) simulate(dt, t);
+    simMs = lerp(simMs, performance.now() - s0, 0.08);
+
+    /* camera: inertial orbit + idle drift + charge shake */
+    cam.theta += cam.tVel + (autoOn ? 0.0011 : 0.00028);
+    cam.phi = clamp(cam.phi + cam.pVel, 0.45, 2.6);
+    cam.tVel *= Math.pow(0.0025, dt);
+    cam.pVel *= Math.pow(0.0025, dt);
+    var shx = cam.shake * NOISE.n3(shakeSeed, t * 9, 0);
+    var shy = cam.shake * NOISE.n3(0, shakeSeed, t * 9);
+    var sp = Math.sin(cam.phi), cp = Math.cos(cam.phi);
+    camera.position.set(
+      Math.cos(cam.theta) * sp * cam.radius + shx,
+      cp * cam.radius + shy,
+      Math.sin(cam.theta) * sp * cam.radius
+    );
+    camera.lookAt(0, 0, 0);
+    material.uniforms.uTime.value = t;
+    renderer.render(scene, camera);
+
+    /* keep specimen readout in sync with the dial */
+    var live = ((Math.round(scroll.value / SEG) % 7) + 7) % 7;
+    if (live !== curSpec && machine.state === 'field') setSpecimenLabel(live, false);
+  } else if (GOO) {
+    GOO.step(dt * 1000);
+  }
+
+  if (CUR) CUR.frame(t, dt);
+  telemetry(now, dt);
+}
+
+/* ==================================================================
+   BOOT CHOREOGRAPHY
+   ================================================================== */
+function boot() {
+  if (!initField()) return;
+  buildRail();
+  tPts.textContent = N.toLocaleString();
+  splitChars(specName, 'SPHERE');
+  splitChars(document.getElementById('boot-word'), 'FLUX');
+  var wordChs = document.querySelectorAll('#boot-word .ch');
+  if (wordChs[3]) wordChs[3].classList.add('acc');
+
+  requestAnimationFrame(loop);
+
+  var finish = function () {
+    machine.send('DONE');
+    document.getElementById('boot').style.display = 'none';
+    if (HAS_ANIME && !RM) {
+      document.querySelectorAll('[data-ui]').forEach(function (el) { el.style.opacity = 0; });
+      docEl.classList.remove('booting');
+      anime({
+        targets: '[data-ui]',
+        translateY: [12, 0], opacity: [0, 1],
+        duration: 750, delay: anime.stagger(70, { start: 80 }),
+        easing: 'easeOutCubic'
+      });
+      gsap.to('#hint', { autoAlpha: 0, duration: 1, delay: 7, ease: 'power2.out' });
+    } else {
+      docEl.classList.remove('booting');
+      document.querySelectorAll('[data-ui]').forEach(function (el) { el.style.opacity = 1; });
+    }
+  };
+
+  if (RM || !HAS_ANIME) {
+    P.k = 26;
+    gsap.set(cam, { radius: 16 });
+    gsap.to('#boot', { autoAlpha: 0, duration: 0.4, onComplete: finish });
+    return;
+  }
+
+  /* springs gather the cloud while the wordmark types itself in */
+  P.k = 2.2;
+  var tl = gsap.timeline();
+  tl.add(function () {
+    anime({ targets: '#boot .lines span', opacity: [0, 1], translateY: [6, 0],
+      duration: 420, delay: anime.stagger(260), easing: 'easeOutCubic' });
+    anime({ targets: wordChs, opacity: [0, 1], translateY: [46, 0], rotate: ['8deg', '0deg'],
+      duration: 900, delay: anime.stagger(70, { start: 650 }), easing: 'easeOutExpo' });
+  }, 0);
+  tl.to(P, { k: 26, duration: 2.6, ease: 'expo.out' }, 1.0);
+  tl.to(cam, { radius: 16, duration: 3.0, ease: 'expo.inOut' }, 0.9);
+  tl.to('#boot', { autoAlpha: 0, duration: 0.8, ease: 'power2.inOut' }, 2.5);
+  tl.add(finish, 3.05);
+}
+
+/* resize */
+window.addEventListener('resize', function () {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  if (GOO) GOO.resize();
+});
+document.addEventListener('visibilitychange', function () {
+  lastT = performance.now();
+});
+
+boot();
+
+})();
+</script>
+</body>
+</html>
