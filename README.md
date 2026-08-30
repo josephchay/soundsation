@@ -1,1 +1,1 @@
-# Soundsation - Playlist Visualizer
+# Station of Sensational Sounds
